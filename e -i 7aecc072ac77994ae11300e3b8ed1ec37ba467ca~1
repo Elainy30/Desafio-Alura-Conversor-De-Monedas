@@ -1,0 +1,520 @@
+[33mcommit 7aecc072ac77994ae11300e3b8ed1ec37ba467ca[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: Elainy30 <130621388+Elainy30@users.noreply.github.com>
+Date:   Wed Oct 9 00:13:50 2024 -0400
+
+    Implementación de la lógica de conversión de monedas y adición de tipos de moneda
+
+[1mdiff --git a/pom.xml b/pom.xml[m
+[1mindex 2a988da..bffa8cf 100644[m
+[1m--- a/pom.xml[m
+[1m+++ b/pom.xml[m
+[36m@@ -13,5 +13,22 @@[m
+         <maven.compiler.target>17</maven.compiler.target>[m
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>[m
+     </properties>[m
+[31m-    [m
+[31m-</project>[m
+\ No newline at end of file[m
+[32m+[m
+[32m+[m[32m    <dependencies>[m
+[32m+[m[32m        <!-- Otras dependencias -->[m
+[32m+[m
+[32m+[m[32m        <!-- Dependencia de Gson -->[m
+[32m+[m[32m        <dependency>[m
+[32m+[m[32m            <groupId>com.google.code.gson</groupId>[m
+[32m+[m[32m            <artifactId>gson</artifactId>[m
+[32m+[m[32m            <version>2.10.1</version> <!-- O la última versión disponible -->[m
+[32m+[m[32m        </dependency>[m
+[32m+[m[32m        <dependency>[m
+[32m+[m[32m            <groupId>org.junit.jupiter</groupId>[m
+[32m+[m[32m            <artifactId>junit-jupiter-engine</artifactId>[m
+[32m+[m[32m            <version>5.8.1</version>[m
+[32m+[m[32m            <scope>test</scope>[m
+[32m+[m[32m        </dependency>[m
+[32m+[m[32m    </dependencies>[m
+[32m+[m
+[32m+[m[32m</project>[m
+[1mdiff --git a/src/main/java/com/cursosalura/conversor/Conversor.java b/src/main/java/com/cursosalura/conversor/Conversor.java[m
+[1mnew file mode 100644[m
+[1mindex 0000000..faf828f[m
+[1m--- /dev/null[m
+[1m+++ b/src/main/java/com/cursosalura/conversor/Conversor.java[m
+[36m@@ -0,0 +1,78 @@[m
+[32m+[m[32mpackage com.cursosalura.conversor;[m
+[32m+[m
+[32m+[m[32mimport com.google.gson.Gson;[m
+[32m+[m
+[32m+[m[32mimport java.io.BufferedReader;[m
+[32m+[m[32mimport java.io.InputStreamReader;[m
+[32m+[m[32mimport java.net.HttpURLConnection;[m
+[32m+[m[32mimport java.net.URL;[m
+[32m+[m[32mimport java.util.Map;[m
+[32m+[m[32mimport java.util.Scanner;[m
+[32m+[m
+[32m+[m[32mpublic class Conversor {[m
+[32m+[m[32m    private static final String API_KEY = "3f33315179de228246ac7ce9"; // Tu clave API[m
+[32m+[m[32m    private static final String API_URL = "https://v6.exchangerate-api.com/v6/" + API_KEY + "/latest/";[m
+[32m+[m
+[32m+[m[32m    public static Map<String, Double> obtenerTasasFiltradas(String monedaBase, String[] codigosMonedas) {[m
+[32m+[m[32m        try {[m
+[32m+[m[32m            // Llamada a la API[m
+[32m+[m[32m            URL url = new URL(API_URL + monedaBase);[m
+[32m+[m[32m            HttpURLConnection conn = (HttpURLConnection) url.openConnection();[m
+[32m+[m[32m            conn.setRequestMethod("GET");[m
+[32m+[m
+[32m+[m[32m            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));[m
+[32m+[m[32m            StringBuilder response = new StringBuilder();[m
+[32m+[m[32m            String inputLine;[m
+[32m+[m[32m            while ((inputLine = in.readLine()) != null) {[m
+[32m+[m[32m                response.append(inputLine);[m
+[32m+[m[32m            }[m
+[32m+[m[32m            in.close();[m
+[32m+[m
+[32m+[m[32m            // Parsear la respuesta JSON[m
+[32m+[m[32m            Gson gson = new Gson();[m
+[32m+[m[32m            TasaCambio tasaCambio = gson.fromJson(response.toString(), TasaCambio.class);[m
+[32m+[m
+[32m+[m[32m            // Obtener las tasas filtradas[m
+[32m+[m[32m            return tasaCambio.obtenerTasasFiltradas(codigosMonedas);[m
+[32m+[m[32m        } catch (Exception e) {[m
+[32m+[m[32m            e.printStackTrace();[m
+[32m+[m[32m            return null;[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public static void mostrarTasas(Map<String, Double> tasasFiltradas) {[m
+[32m+[m[32m        System.out.println("Tasas de cambio:");[m
+[32m+[m[32m        for (Map.Entry<String, Double> entrada : tasasFiltradas.entrySet()) {[m
+[32m+[m[32m            System.out.printf("%s: %.4f%n", entrada.getKey(), entrada.getValue());[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public static double convertir(double monto, String monedaOrigen, String monedaDestino, Map<String, Double> tasasFiltradas) {[m
+[32m+[m[32m        // Verifica que las monedas existan en las tasas filtradas[m
+[32m+[m[32m        if (!tasasFiltradas.containsKey(monedaOrigen) || !tasasFiltradas.containsKey(monedaDestino)) {[m
+[32m+[m[32m            System.out.println("Una de las monedas no es válida.");[m
+[32m+[m[32m            return 0.0;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        // Obtiene las tasas de cambio[m
+[32m+[m[32m        double tasaOrigen = tasasFiltradas.get(monedaOrigen);[m
+[32m+[m[32m        double tasaDestino = tasasFiltradas.get(monedaDestino);[m
+[32m+[m
+[32m+[m[32m        // Realiza la conversión[m
+[32m+[m[32m        double montoEnBase = monto / tasaOrigen; // Convierte el monto a la moneda base[m
+[32m+[m[32m        double montoConvertido = montoEnBase * tasaDestino; // Convierte a la moneda de destino[m
+[32m+[m
+[32m+[m[32m        return montoConvertido;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public static void mostrarTiposMoneda() {[m
+[32m+[m[32m        // Lista de monedas para mostrar al usuario[m
+[32m+[m[32m        System.out.println("Tipos de moneda disponibles:");[m
+[32m+[m[32m        System.out.println("ARS - Peso Argentino");[m
+[32m+[m[32m        System.out.println("BOB - Boliviano Boliviano");[m
+[32m+[m[32m        System.out.println("BRL - Real Brasileño");[m
+[32m+[m[32m        System.out.println("CLP - Peso Chileno");[m
+[32m+[m[32m        System.out.println("COP - Peso Colombiano");[m
+[32m+[m[32m        System.out.println("USD - Dólar Estadounidense");[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[1mdiff --git a/src/main/java/com/cursosalura/conversor/Main.java b/src/main/java/com/cursosalura/conversor/Main.java[m
+[1mnew file mode 100644[m
+[1mindex 0000000..83780e4[m
+[1m--- /dev/null[m
+[1m+++ b/src/main/java/com/cursosalura/conversor/Main.java[m
+[36m@@ -0,0 +1,63 @@[m
+[32m+[m[32mpackage com.cursosalura.conversor;[m
+[32m+[m
+[32m+[m[32mimport java.util.Map;[m
+[32m+[m[32mimport java.util.Scanner;[m
+[32m+[m
+[32m+[m[32mpublic class Main {[m
+[32m+[m[32m    public static void main(String[] args) {[m
+[32m+[m[32m        Scanner scanner = new Scanner(System.in);[m
+[32m+[m[32m        String monedaBase = "USD"; // Cambia esto por la moneda base que quieras[m
+[32m+[m[32m        String[] codigosMonedas = {"ARS", "BOB", "BRL", "CLP", "COP", "USD", "DOP", "EUR"}; // Códigos de moneda a filtrar[m
+[32m+[m[32m        Map<String, Double> tasasFiltradas = Conversor.obtenerTasasFiltradas(monedaBase, codigosMonedas);[m
+[32m+[m
+[32m+[m[32m        if (tasasFiltradas == null) {[m
+[32m+[m[32m            System.out.println("No se pudieron obtener las tasas de cambio.");[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        boolean continuar = true;[m
+[32m+[m
+[32m+[m[32m        while (continuar) {[m
+[32m+[m[32m            System.out.println("\n*** Menú de Conversor de Monedas ***");[m
+[32m+[m[32m            System.out.println("1. Ver tasas de cambio");[m
+[32m+[m[32m            System.out.println("2. Convertir monedas");[m
+[32m+[m[32m            System.out.println("3. Ver tipos de moneda");[m
+[32m+[m[32m            System.out.println("4. Salir");[m
+[32m+[m[32m            System.out.print("Seleccione una opción: ");[m
+[32m+[m
+[32m+[m[32m            int opcion = scanner.nextInt();[m
+[32m+[m[32m            switch (opcion) {[m
+[32m+[m[32m                case 1:[m
+[32m+[m[32m                    Conversor.mostrarTasas(tasasFiltradas);[m
+[32m+[m[32m                    break;[m
+[32m+[m[32m                case 2:[m
+[32m+[m[32m                    realizarConversion(scanner, tasasFiltradas);[m
+[32m+[m[32m                    break;[m
+[32m+[m[32m                case 3:[m
+[32m+[m[32m                    Conversor.mostrarTiposMoneda();[m
+[32m+[m[32m                    break;[m
+[32m+[m[32m                case 4:[m
+[32m+[m[32m                    continuar = false;[m
+[32m+[m[32m                    break;[m
+[32m+[m[32m                default:[m
+[32m+[m[32m                    System.out.println("Opción no válida. Intente de nuevo.");[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m[32m        System.out.println("Gracias por usar el conversor de monedas. ¡Hasta luego!");[m
+[32m+[m[32m        scanner.close();[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public static void realizarConversion(Scanner scanner, Map<String, Double> tasasFiltradas) {[m
+[32m+[m[32m        System.out.print("Ingrese el monto a convertir: ");[m
+[32m+[m[32m        double monto = scanner.nextDouble();[m
+[32m+[m[32m        System.out.print("Ingrese el código de la moneda de origen: ");[m
+[32m+[m[32m        String monedaOrigen = scanner.next().toUpperCase();[m
+[32m+[m[32m        System.out.print("Ingrese el código de la moneda de destino: ");[m
+[32m+[m[32m        String monedaDestino = scanner.next().toUpperCase();[m
+[32m+[m
+[32m+[m[32m        double resultado = Conversor.convertir(monto, monedaOrigen, monedaDestino, tasasFiltradas);[m
+[32m+[m[32m        if (resultado > 0) {[m
+[32m+[m[32m            System.out.printf("El monto convertido de %s a %s es: %.2f%n", monedaOrigen, monedaDestino, resultado);[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[1mdiff --git a/src/main/java/com/cursosalura/conversor/Moneda.java b/src/main/java/com/cursosalura/conversor/Moneda.java[m
+[1mnew file mode 100644[m
+[1mindex 0000000..30ea65a[m
+[1m--- /dev/null[m
+[1m+++ b/src/main/java/com/cursosalura/conversor/Moneda.java[m
+[36m@@ -0,0 +1,40 @@[m
+[32m+[m[32mpackage com.cursosalura.conversor;[m
+[32m+[m
+[32m+[m[32mpublic class Moneda {[m
+[32m+[m[32m    private String codigo;[m
+[32m+[m[32m    private String nombre;[m
+[32m+[m[32m    private String simbolo;[m
+[32m+[m
+[32m+[m[32m    // Constructor[m
+[32m+[m[32m    public Moneda(String codigo, String nombre, String simbolo) {[m
+[32m+[m[32m        this.codigo = codigo;[m
+[32m+[m[32m        this.nombre = nombre;[m
+[32m+[m[32m        this.simbolo = simbolo;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Getters[m
+[32m+[m[32m    public String getCodigo() {[m
+[32m+[m[32m        return codigo;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public String getNombre() {[m
+[32m+[m[32m        return nombre;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public String getSimbolo() {[m
+[32m+[m[32m        return simbolo;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Setters[m
+[32m+[m[32m    public void setCodigo(String codigo) {[m
+[32m+[m[32m        this.codigo = codigo;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void setNombre(String nombre) {[m
+[32m+[m[32m        this.nombre = nombre;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void setSimbolo(String simbolo) {[m
+[32m+[m[32m        this.simbolo = simbolo;[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[1mdiff --git a/src/main/java/com/cursosalura/conversor/TasaCambio.java b/src/main/java/com/cursosalura/conversor/TasaCambio.java[m
+[1mnew file mode 100644[m
+[1mindex 0000000..1fa2a3b[m
+[1m--- /dev/null[m
+[1m+++ b/src/main/java/com/cursosalura/conversor/TasaCambio.java[m
+[36m@@ -0,0 +1,52 @@[m
+[32m+[m[32mpackage com.cursosalura.conversor;[m
+[32m+[m
+[32m+[m[32mimport java.util.HashMap;[m
+[32m+[m[32mimport java.util.Map;[m
+[32m+[m
+[32m+[m[32mpublic class TasaCambio {[m
+[32m+[m[32m    private String result;          // Resultado de la consulta[m
+[32m+[m[32m    private String base_code;       // Moneda base[m
+[32m+[m[32m    private String fecha;           // Fecha de las tasas[m
+[32m+[m[32m    private Map<String, Double> conversion_rates; // Tasas de cambio[m
+[32m+[m
+[32m+[m[32m    // Constructor[m
+[32m+[m[32m    public TasaCambio(String result, String base_code, String fecha, Map<String, Double> conversion_rates) {[m
+[32m+[m[32m        this.result = result;[m
+[32m+[m[32m        this.base_code = base_code;[m
+[32m+[m[32m        this.fecha = fecha;[m
+[32m+[m[32m        this.conversion_rates = conversion_rates;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Getters[m
+[32m+[m[32m    public String getResult() {[m
+[32m+[m[32m        return result;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public String getBaseCode() {[m
+[32m+[m[32m        return base_code;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public String getFecha() {[m
+[32m+[m[32m        return fecha;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public Map<String, Double> getConversionRates() {[m
+[32m+[m[32m        return conversion_rates;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Metodo para obtener la tasa de cambio para una moneda específica[m
+[32m+[m[32m    public Double obtenerTasa(String monedaDestino) {[m
+[32m+[m[32m        return conversion_rates.get(monedaDestino);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Metodo para obtener tasas filtradas según códigos de moneda[m
+[32m+[m[32m    public Map<String, Double> obtenerTasasFiltradas(String[] codigosMonedas) {[m
+[32m+[m[32m        Map<String, Double> tasasFiltradas = new HashMap<>();[m
+[32m+[m[32m        for (String codigo : codigosMonedas) {[m
+[32m+[m[32m            if (conversion_rates.containsKey(codigo)) {[m
+[32m+[m[32m                tasasFiltradas.put(codigo, conversion_rates.get(codigo));[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m[32m        return tasasFiltradas;[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[1mdiff --git a/src/main/java/org/example/Main.java b/src/main/java/org/example/Main.java[m
+[1mdeleted file mode 100644[m
+[1mindex a02700f..0000000[m
+[1m--- a/src/main/java/org/example/Main.java[m
+[1m+++ /dev/null[m
+[36m@@ -1,17 +0,0 @@[m
+[31m-package org.example;[m
+[31m-[m
+[31m-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or[m
+[31m-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.[m
+[31m-public class Main {[m
+[31m-    public static void main(String[] args) {[m
+[31m-        //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text[m
+[31m-        // to see how IntelliJ IDEA suggests fixing it.[m
+[31m-        System.out.printf("Hello and welcome!");[m
+[31m-[m
+[31m-        for (int i = 1; i <= 5; i++) {[m
+[31m-            //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint[m
+[31m-            // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.[m
+[31m-            System.out.println("i = " + i);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+\ No newline at end of file[m
+[1mdiff --git a/src/test/java/com/cursosalura/conversor/ConversorTest.java b/src/test/java/com/cursosalura/conversor/ConversorTest.java[m
+[1mnew file mode 100644[m
+[1mindex 0000000..077e1c7[m
+[1m--- /dev/null[m
+[1m+++ b/src/test/java/com/cursosalura/conversor/ConversorTest.java[m
+[36m@@ -0,0 +1,40 @@[m
+[32m+[m[32mpackage com.cursosalura.conversor;[m
+[32m+[m
+[32m+[m[32mimport org.junit.jupiter.api.Assertions;[m
+[32m+[m[32mimport org.junit.jupiter.api.Test;[m
+[32m+[m
+[32m+[m[32mimport java.util.HashMap;[m
+[32m+[m[32mimport java.util.Map;[m
+[32m+[m
+[32m+[m[32mpublic class ConversorTest {[m
+[32m+[m
+[32m+[m[32m    @Test[m
+[32m+[m[32m    public void testConvertir() {[m
+[32m+[m[32m        // Preparar tasas de cambio[m
+[32m+[m[32m        Map<String, Double> tasas = new HashMap<>();[m
+[32m+[m[32m        tasas.put("USD", 1.0);[m
+[32m+[m[32m        tasas.put("EUR", 0.85);[m
+[32m+[m[32m        tasas.put("DOP", 58.0);[m
+[32m+[m
+[32m+[m[32m        // Convertir 100 USD a EUR[m
+[32m+[m[32m        double resultadoEUR = Conversor.convertir(100, "USD", "EUR", tasas);[m
+[32m+[m[32m        Assertions.assertEquals(85.0, resultadoEUR, 0.01); // 100 USD = 85 EUR (con un error de 0.01)[m
+[32m+[m
+[32m+[m[32m        // Convertir 100 USD a DOP[m
+[32m+[m[32m        double resultadoDOP = Conversor.convertir(100, "USD", "DOP", tasas);[m
+[32m+[m[32m        Assertions.assertEquals(5800.0, resultadoDOP, 0.01); // 100 USD = 5800 DOP[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    @Test[m
+[32m+[m[32m    public void testObtenerTasasFiltradas() {[m
+[32m+[m[32m        String[] codigosMonedas = {"USD", "EUR", "DOP"};[m
+[32m+[m[32m        String monedaBase = "USD";[m
+[32m+[m
+[32m+[m[32m        Map<String, Double> tasasFiltradas = Conversor.obtenerTasasFiltradas(monedaBase, codigosMonedas);[m
+[32m+[m
+[32m+[m[32m        // Verificar que se obtienen las tasas de cambio[m
+[32m+[m[32m        Assertions.assertNotNull(tasasFiltradas);[m
+[32m+[m[32m        Assertions.assertTrue(tasasFiltradas.containsKey("EUR"));[m
+[32m+[m[32m        Assertions.assertTrue(tasasFiltradas.containsKey("DOP"));[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+
+[33mcommit ee9cee2a96914fc63fc899b732a0113dbbb7c291[m
+Author: Elainy30 <130621388+Elainy30@users.noreply.github.com>
+Date:   Tue Oct 8 16:05:16 2024 -0400
+
+    Initial commit
+
+[1mdiff --git a/.gitignore b/.gitignore[m
+[1mnew file mode 100644[m
+[1mindex 0000000..5ff6309[m
+[1m--- /dev/null[m
+[1m+++ b/.gitignore[m
+[36m@@ -0,0 +1,38 @@[m
+[32m+[m[32mtarget/[m
+[32m+[m[32m!.mvn/wrapper/maven-wrapper.jar[m
+[32m+[m[32m!**/src/main/**/target/[m
+[32m+[m[32m!**/src/test/**/target/[m
+[32m+[m
+[32m+[m[32m### IntelliJ IDEA ###[m
+[32m+[m[32m.idea/modules.xml[m
+[32m+[m[32m.idea/jarRepositories.xml[m
+[32m+[m[32m.idea/compiler.xml[m
+[32m+[m[32m.idea/libraries/[m
+[32m+[m[32m*.iws[m
+[32m+[m[32m*.iml[m
+[32m+[m[32m*.ipr[m
+[32m+[m
+[32m+[m[32m### Eclipse ###[m
+[32m+[m[32m.apt_generated[m
+[32m+[m[32m.classpath[m
+[32m+[m[32m.factorypath[m
+[32m+[m[32m.project[m
+[32m+[m[32m.settings[m
+[32m+[m[32m.springBeans[m
+[32m+[m[32m.sts4-cache[m
+[32m+[m
+[32m+[m[32m### NetBeans ###[m
+[32m+[m[32m/nbproject/private/[m
+[32m+[m[32m/nbbuild/[m
+[32m+[m[32m/dist/[m
+[32m+[m[32m/nbdist/[m
+[32m+[m[32m/.nb-gradle/[m
+[32m+[m[32mbuild/[m
+[32m+[m[32m!**/src/main/**/build/[m
+[32m+[m[32m!**/src/test/**/build/[m
+[32m+[m
+[32m+[m[32m### VS Code ###[m
+[32m+[m[32m.vscode/[m
+[32m+[m
+[32m+[m[32m### Mac OS ###[m
+[32m+[m[32m.DS_Store[m
+\ No newline at end of file[m
+[1mdiff --git a/.idea/.gitignore b/.idea/.gitignore[m
+[1mnew file mode 100644[m
+[1mindex 0000000..26d3352[m
+[1m--- /dev/null[m
+[1m+++ b/.idea/.gitignore[m
+[36m@@ -0,0 +1,3 @@[m
+[32m+[m[32m# Default ignored files[m
+[32m+[m[32m/shelf/[m
+[32m+[m[32m/workspace.xml[m
+[1mdiff --git a/.idea/encodings.xml b/.idea/encodings.xml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..aa00ffa[m
+[1m--- /dev/null[m
+[1m+++ b/.idea/encodings.xml[m
+[36m@@ -0,0 +1,7 @@[m
+[32m+[m[32m<?xml version="1.0" encoding="UTF-8"?>[m
+[32m+[m[32m<project version="4">[m
+[32m+[m[32m  <component name="Encoding">[m
+[32m+[m[32m    <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />[m
+[32m+[m[32m    <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />[m
+[32m+[m[32m  </component>[m
+[32m+[m[32m</project>[m
+\ No newline at end of file[m
+[1mdiff --git a/.idea/misc.xml b/.idea/misc.xml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..82dbec8[m
+[1m--- /dev/null[m
+[1m+++ b/.idea/misc.xml[m
+[36m@@ -0,0 +1,14 @@[m
+[32m+[m[32m<?xml version="1.0" encoding="UTF-8"?>[m
+[32m+[m[32m<project version="4">[m
+[32m+[m[32m  <component name="ExternalStorageConfigurationManager" enabled="true" />[m
+[32m+[m[32m  <component name="MavenProjectsManager">[m
+[32m+[m[32m    <option name="originalFiles">[m
+[32m+[m[32m      <list>[m
+[32m+[m[32m        <option value="$PROJECT_DIR$/pom.xml" />[m
+[32m+[m[32m      </list>[m
+[32m+[m[32m    </option>[m
+[32m+[m[32m  </component>[m
+[32m+[m[32m  <component name="ProjectRootManager" version="2" languageLevel="JDK_17" default="true" project-jdk-name="17" project-jdk-type="JavaSDK">[m
+[32m+[m[32m    <output url="file://$PROJECT_DIR$/out" />[m
+[32m+[m[32m  </component>[m
+[32m+[m[32m</project>[m
+\ No newline at end of file[m
+[1mdiff --git a/.idea/vcs.xml b/.idea/vcs.xml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..94a25f7[m
+[1m--- /dev/null[m
+[1m+++ b/.idea/vcs.xml[m
+[36m@@ -0,0 +1,6 @@[m
+[32m+[m[32m<?xml version="1.0" encoding="UTF-8"?>[m
+[32m+[m[32m<project version="4">[m
+[32m+[m[32m  <component name="VcsDirectoryMappings">[m
+[32m+[m[32m    <mapping directory="$PROJECT_DIR$" vcs="Git" />[m
+[32m+[m[32m  </component>[m
+[32m+[m[32m</project>[m
+\ No newline at end of file[m
+[1mdiff --git a/pom.xml b/pom.xml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..2a988da[m
+[1m--- /dev/null[m
+[1m+++ b/pom.xml[m
+[36m@@ -0,0 +1,17 @@[m
+[32m+[m[32m<?xml version="1.0" encoding="UTF-8"?>[m
+[32m+[m[32m<project xmlns="http://maven.apache.org/POM/4.0.0"[m
+[32m+[m[32m         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"[m
+[32m+[m[32m         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">[m
+[32m+[m[32m    <modelVersion>4.0.0</modelVersion>[m
+[32m+[m
+[32m+[m[32m    <groupId>org.example</groupId>[m
+[32m+[m[32m    <artifactId>Desafio-Alura-Conversor-De-Monedas</artifactId>[m
+[32m+[m[32m    <version>1.0-SNAPSHOT</version>[m
+[32m+[m
+[32m+[m[32m    <properties>[m
+[32m+[m[32m        <maven.compiler.source>17</maven.compiler.source>[m
+[32m+[m[32m        <maven.compiler.target>17</maven.compiler.target>[m
+[32m+[m[32m        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>[m
+[32m+[m[32m    </properties>[m
+[32m+[m[41m    [m
+[32m+[m[32m</project>[m
+\ No newline at end of file[m
+[1mdiff --git a/src/main/java/org/example/Main.java b/src/main/java/org/example/Main.java[m
+[1mnew file mode 100644[m
+[1mindex 0000000..a02700f[m
+[1m--- /dev/null[m
+[1m+++ b/src/main/java/org/example/Main.java[m
+[36m@@ -0,0 +1,17 @@[m
+[32m+[m[32mpackage org.example;[m
+[32m+[m
+[32m+[m[32m//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or[m
+[32m+[m[32m// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.[m
+[32m+[m[32mpublic class Main {[m
+[32m+[m[32m    public static void main(String[] args) {[m
+[32m+[m[32m        //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text[m
+[32m+[m[32m        // to see how IntelliJ IDEA suggests fixing it.[m
+[32m+[m[32m        System.out.printf("Hello and welcome!");[m
+[32m+[m
+[32m+[m[32m        for (int i = 1; i <= 5; i++) {[m
+[32m+[m[32m            //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint[m
+[32m+[m[32m            // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.[m
+[32m+[m[32m            System.out.println("i = " + i);[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+\ No newline at end of file[m
