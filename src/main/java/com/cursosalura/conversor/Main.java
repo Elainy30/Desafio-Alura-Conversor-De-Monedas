@@ -1,86 +1,101 @@
 package com.cursosalura.conversor;
 
+import javax.swing.*;
+import java.awt.*;
 import java.util.Map;
-import java.util.Scanner;
 
 public class Main {
+    private static final Conversor conversor = new Conversor(); // Marcar como final
+    private static final String[] codigosMonedas = {"ARS", "BOB", "BRL", "CLP", "COP", "USD", "DOP", "EUR"}; // Marcar como final
+    private static Map<String, Double> tasasFiltradas;
+
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        Conversor conversor = new Conversor(); // Crear una instancia de Conversor
-        String monedaBase = "USD"; // Cambia esto por la moneda base que quieras
-        String[] codigosMonedas = {"ARS", "BOB", "BRL", "CLP", "COP", "USD", "DOP", "EUR"}; // Códigos de moneda a filtrar
-        Map<String, Double> tasasFiltradas = conversor.obtenerTasasFiltradas(monedaBase, codigosMonedas);
+        String monedaBase = "USD"; // Moneda base
+        tasasFiltradas = conversor.obtenerTasasFiltradas(monedaBase, codigosMonedas);
 
         if (tasasFiltradas == null) {
-            System.out.println("No se pudieron obtener las tasas de cambio.");
-            scanner.close();
+            JOptionPane.showMessageDialog(null, "No se pudieron obtener las tasas de cambio.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        boolean continuar = true;
+        // Crear la ventana principal
+        JFrame frame = new JFrame("Conversor de Monedas");
+        frame.setSize(400, 300);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new BorderLayout());
 
-        while (continuar) {
-            System.out.println("\n*** Menú de Conversor de Monedas ***");
-            System.out.println("1. Ver tasas de cambio");
-            System.out.println("2. Convertir monedas");
-            System.out.println("3. Ver tipos de moneda");
-            System.out.println("4. Salir");
-            System.out.print("Seleccione una opción: ");
+        // Crear el menú principal
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(4, 1));
 
-            // Manejo de errores al leer la opción
-            int opcion = 0;
-            try {
-                opcion = scanner.nextInt();
-            } catch (Exception e) {
-                System.out.println("Por favor, ingrese un número válido.");
-                scanner.next(); // Limpiar el buffer del scanner
-                continue; // Volver al inicio del bucle
-            }
+        JButton btnVerTasas = new JButton("Ver tasas de cambio");
+        JButton btnConvertir = new JButton("Convertir monedas");
+        JButton btnVerMonedas = new JButton("Ver tipos de moneda");
+        JButton btnSalir = new JButton("Salir");
 
-            switch (opcion) {
-                case 1:
-                    conversor.mostrarTasas(tasasFiltradas);
-                    break;
-                case 2:
-                    realizarConversion(scanner, conversor, tasasFiltradas);
-                    break;
-                case 3:
-                    conversor.mostrarTiposMoneda();
-                    break;
-                case 4:
-                    continuar = false;
-                    break;
-                default:
-                    System.out.println("Opción no válida. Intente de nuevo.");
-            }
-        }
-        System.out.println("Gracias por usar el conversor de monedas. ¡Hasta luego!");
-        scanner.close();
+        panel.add(btnVerTasas);
+        panel.add(btnConvertir);
+        panel.add(btnVerMonedas);
+        panel.add(btnSalir);
+
+        frame.add(panel, BorderLayout.CENTER);
+        frame.setVisible(true);
+
+        // Acción para ver tasas de cambio usando lambda
+        btnVerTasas.addActionListener(e -> {
+            StringBuilder tasas = new StringBuilder();
+            tasasFiltradas.forEach((key, value) -> tasas.append(key).append(": ").append(value).append("\n"));
+            JOptionPane.showMessageDialog(frame, tasas.toString(), "Tasas de Cambio", JOptionPane.INFORMATION_MESSAGE);
+        });
+
+        // Acción para convertir monedas usando lambda
+        btnConvertir.addActionListener(e -> realizarConversion(frame));
+
+        // Acción para ver los tipos de moneda usando lambda
+        btnVerMonedas.addActionListener(e -> mostrarTiposMoneda(frame));
+
+        // Acción para salir usando lambda
+        btnSalir.addActionListener(e -> frame.dispose()); // Cierra la aplicación
     }
 
-    public static void realizarConversion(Scanner scanner, Conversor conversor, Map<String, Double> tasasFiltradas) {
-        System.out.print("Ingrese el monto a convertir: ");
-        double monto = 0;
+    private static void realizarConversion(JFrame frame) {
+        JTextField montoField = new JTextField();
 
-        // Manejo de errores al leer el monto
-        try {
-            monto = scanner.nextDouble();
-        } catch (Exception e) {
-            System.out.println("Por favor, ingrese un número válido para el monto.");
-            scanner.next(); // Limpiar el buffer del scanner
-            return; // Salir de la función
+        // Crear listas desplegables (ComboBox) para las monedas
+        JComboBox<String> monedaOrigenBox = new JComboBox<>(codigosMonedas);
+        JComboBox<String> monedaDestinoBox = new JComboBox<>(codigosMonedas);
+
+        Object[] inputs = {
+                "Ingrese el monto a convertir:", montoField,
+                "Seleccione la moneda de origen:", monedaOrigenBox,
+                "Seleccione la moneda de destino:", monedaDestinoBox
+        };
+
+        int option = JOptionPane.showConfirmDialog(frame, inputs, "Conversión de Moneda", JOptionPane.OK_CANCEL_OPTION);
+        if (option == JOptionPane.OK_OPTION) {
+            try {
+                double monto = Double.parseDouble(montoField.getText());
+                String monedaOrigen = (String) monedaOrigenBox.getSelectedItem();
+                String monedaDestino = (String) monedaDestinoBox.getSelectedItem();
+
+                double resultado = conversor.convertir(monto, monedaOrigen, monedaDestino, tasasFiltradas);
+                if (resultado > 0) {
+                    JOptionPane.showMessageDialog(frame, String.format("El monto convertido de %s a %s es: %.2f", monedaOrigen, monedaDestino, resultado));
+                } else {
+                    JOptionPane.showMessageDialog(frame, "La conversión no se pudo realizar.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(frame, "Por favor, ingrese un número válido para el monto.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
+    }
 
-        System.out.print("Ingrese el código de la moneda de origen: ");
-        String monedaOrigen = scanner.next().toUpperCase();
-        System.out.print("Ingrese el código de la moneda de destino: ");
-        String monedaDestino = scanner.next().toUpperCase();
-
-        double resultado = conversor.convertir(monto, monedaOrigen, monedaDestino, tasasFiltradas);
-        if (resultado > 0) {
-            System.out.printf("El monto convertido de %s a %s es: %.2f%n", monedaOrigen, monedaDestino, resultado);
-        } else {
-            System.out.println("La conversión no se pudo realizar.");
+    private static void mostrarTiposMoneda(JFrame frame) {
+        StringBuilder tiposDeMoneda = new StringBuilder("Tipos de moneda disponibles:\n");
+        for (String codigoMoneda : codigosMonedas) {
+            tiposDeMoneda.append(codigoMoneda).append("\n");
         }
+        JOptionPane.showMessageDialog(frame, tiposDeMoneda.toString(), "Tipos de Moneda", JOptionPane.INFORMATION_MESSAGE);
     }
 }
+
